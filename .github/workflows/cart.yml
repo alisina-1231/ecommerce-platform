@@ -2,11 +2,8 @@ name: Cart Service - Build and Push
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'services/cart/**'
-      - '.github/workflows/cart.yml'
+    tags:
+      - 'v*.*.*'
 
   workflow_dispatch:
 
@@ -26,9 +23,8 @@ jobs:
       id-token: write
 
     steps:
-
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.4.0
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -48,19 +44,26 @@ jobs:
       - name: Set image tag
         id: image
         run: |
-          echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="dev-${GITHUB_SHA::7}"
+          fi
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Using image tag: ${TAG}"
 
       - name: Build Docker image
         working-directory: services/cart
         run: |
           docker build \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }} \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}" \
             .
 
       - name: Push Docker image
         run: |
           docker push \
-            $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}
+            "$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}"
 
       - name: Display image
         run: |
