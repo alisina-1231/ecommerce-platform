@@ -21,11 +21,7 @@ jobs:
       contents: read
 
     outputs:
-      product: ${{ steps.filter.outputs.product }}
-      cart: ${{ steps.filter.outputs.cart }}
-      checkout: ${{ steps.filter.outputs.checkout }}
-      order: ${{ steps.filter.outputs.order }}
-      payment: ${{ steps.filter.outputs.payment }}
+      services: ${{ steps.filter.outputs.changes }}
 
     steps:
       - name: Checkout repository
@@ -35,22 +31,18 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v3
         with:
+          list-files: none
           filters: |
             product:
               - 'services/product/**'
-
             cart:
               - 'services/cart/**'
-
             checkout:
               - 'services/checkout/**'
-
             order:
               - 'services/order/**'
-
             payment:
               - 'services/payment/**'
-
 
   build-and-push:
     name: Build and Push
@@ -66,12 +58,7 @@ jobs:
           - order
           - payment
 
-    if: |
-      (matrix.service == 'product' && needs.detect-changes.outputs.product == 'true') ||
-      (matrix.service == 'cart' && needs.detect-changes.outputs.cart == 'true') ||
-      (matrix.service == 'checkout' && needs.detect-changes.outputs.checkout == 'true') ||
-      (matrix.service == 'order' && needs.detect-changes.outputs.order == 'true') ||
-      (matrix.service == 'payment' && needs.detect-changes.outputs.payment == 'true')
+    if: ${{ needs.detect-changes.result == 'success' }}
 
     permissions:
       contents: read
@@ -91,12 +78,42 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Check if service changed
+        id: changed
+        env:
+          SERVICE: ${{ matrix.service }}
+          PRODUCT_CHANGED: ${{ needs.detect-changes.outputs.product }}
+          CART_CHANGED: ${{ needs.detect-changes.outputs.cart }}
+          CHECKOUT_CHANGED: ${{ needs.detect-changes.outputs.checkout }}
+          ORDER_CHANGED: ${{ needs.detect-changes.outputs.order }}
+          PAYMENT_CHANGED: ${{ needs.detect-changes.outputs.payment }}
+        run: |
+          case "$SERVICE" in
+            product)
+              echo "changed=$PRODUCT_CHANGED" >> "$GITHUB_OUTPUT"
+              ;;
+            cart)
+              echo "changed=$CART_CHANGED" >> "$GITHUB_OUTPUT"
+              ;;
+            checkout)
+              echo "changed=$CHECKOUT_CHANGED" >> "$GITHUB_OUTPUT"
+              ;;
+            order)
+              echo "changed=$ORDER_CHANGED" >> "$GITHUB_OUTPUT"
+              ;;
+            payment)
+              echo "changed=$PAYMENT_CHANGED" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
       - name: Set image tag
+        if: steps.changed.outputs.changed == 'true'
         id: image
         run: |
           echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
+        if: steps.changed.outputs.changed == 'true'
         working-directory: services/${{ matrix.service }}
         run: |
           docker build \
@@ -104,11 +121,13 @@ jobs:
             .
 
       - name: Push Docker image
+        if: steps.changed.outputs.changed == 'true'
         run: |
           docker push \
             $ECR_REGISTRY/ecommerce-platform-dev-${{ matrix.service }}:${{ steps.image.outputs.tag }}
 
       - name: Display image
+        if: steps.changed.outputs.changed == 'true'
         run: |
           echo "Image pushed:"
           echo "$ECR_REGISTRY/ecommerce-platform-dev-${{ matrix.service }}:${{ steps.image.outputs.tag }}"
