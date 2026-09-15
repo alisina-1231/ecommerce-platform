@@ -2,10 +2,18 @@ name: Cart Service - Build and Push
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+    paths:
+      - 'services/cart/**'
+      - '.github/workflows/cart.yml'
 
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Docker image version, for example v1.1.0'
+        required: true
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -43,9 +51,10 @@ jobs:
 
       - name: Set image tag
         id: image
+        shell: bash
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            TAG="${GITHUB_REF_NAME}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.version }}"
           else
             TAG="dev-${GITHUB_SHA::7}"
           fi
