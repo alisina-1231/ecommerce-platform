@@ -9,11 +9,6 @@ on:
       - '.github/workflows/cart.yml'
 
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Docker image version, for example v1.1.0'
-        required: true
-        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -31,6 +26,7 @@ jobs:
       id-token: write
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4.4.0
 
@@ -51,28 +47,20 @@ jobs:
 
       - name: Set image tag
         id: image
-        shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            TAG="${{ inputs.version }}"
-          else
-            TAG="dev-${GITHUB_SHA::7}"
-          fi
-
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Using image tag: ${TAG}"
+          echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
         working-directory: services/cart
         run: |
           docker build \
-            -t "$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}" \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }} \
             .
 
       - name: Push Docker image
         run: |
           docker push \
-            "$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}"
+            $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}
 
       - name: Display image
         run: |
