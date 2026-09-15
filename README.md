@@ -74,4 +74,3 @@ See [Development Standards](docs/DEVELOPMENT_STANDARDS.md).
 
 ## License
 
-To be defined.
