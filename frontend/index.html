@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexora — Tech Store</title>
+<style>
+  :root{
+    --bg:#0b0d12; --bg2:#11141c; --card:#161a24; --card2:#1c2130;
+    --border:#262c3d; --text:#e8ecf4; --muted:#8b93a7;
+    --accent:#6c8cff; --accent2:#9a6cff; --green:#3ddc97; --red:#ff6b6b;
+    --amber:#ffc857; --radius:16px;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input,select{font-family:inherit}
+
+  /* ---------- Header ---------- */
+  header{position:sticky;top:0;z-index:50;background:rgba(11,13,18,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+  .header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:20px;padding:14px 24px}
+  .logo{font-size:22px;font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:10px}
+  .logo .dot{width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 14px var(--accent)}
+  nav{display:flex;gap:6px;margin-left:8px}
+  nav button{background:transparent;color:var(--muted);padding:8px 14px;border-radius:10px;font-size:14px;font-weight:600;transition:.2s}
+  nav button:hover,nav button.active{color:var(--text);background:var(--card2)}
+  .header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .user-chip{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:7px 12px;font-size:13px;color:var(--muted)}
+  .user-chip input{background:transparent;border:none;outline:none;color:var(--text);width:76px;font-size:13px;font-weight:600}
+  .icon-btn{position:relative;background:var(--card);border:1px solid var(--border);border-radius:12px;width:42px;height:42px;display:grid;place-items:center;font-size:18px;transition:.2s;color:var(--text)}
+  .icon-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .badge{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;min-width:19px;height:19px;border-radius:10px;display:grid;place-items:center;padding:0 5px}
+  .badge.pop{animation:pop .35s ease}
+  @keyframes pop{50%{transform:scale(1.35)}}
+
+  /* ---------- Hero ---------- */
+  .hero{max-width:1200px;margin:0 auto;padding:64px 24px 36px;text-align:center;position:relative}
+  .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(600px 260px at 50% 0,rgba(108,140,255,.14),transparent 70%);pointer-events:none}
+  .hero h1{font-size:clamp(30px,5vw,52px);font-weight:800;line-height:1.12}
+  .hero h1 span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);margin-top:14px;font-size:16px;max-width:560px;margin-inline:auto}
+  .health-row{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:26px}
+  .health-pill{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:7px 14px;font-size:12px;font-weight:600;color:var(--muted)}
+  .health-pill .h-dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+  .health-pill.up .h-dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .health-pill.down .h-dot{background:var(--red);box-shadow:0 0 8px var(--red)}
+  .health-pill.checking .h-dot{background:var(--amber);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.3}}
+
+  /* ---------- Layout ---------- */
+  main{max-width:1200px;margin:0 auto;padding:12px 24px 90px}
+  .section-title{font-size:24px;font-weight:800;margin:34px 0 18px;display:flex;align-items:center;gap:12px}
+  .section-title small{font-size:13px;color:var(--muted);font-weight:500}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
+
+  /* ---------- Product card ---------- */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:.25s;display:flex;flex-direction:column}
+  .card:hover{transform:translateY(-4px);border-color:#3a4358;box-shadow:var(--shadow)}
+  .p-img{height:170px;display:grid;place-items:center;font-size:64px;position:relative;background:linear-gradient(135deg,#1a2030,#141824)}
+  .p-img .tag{position:absolute;top:12px;left:12px;background:rgba(108,140,255,.15);color:var(--accent);font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid rgba(108,140,255,.3)}
+  .p-body{padding:18px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .p-name{font-size:17px;font-weight:700}
+  .p-desc{font-size:13px;color:var(--muted);flex:1}
+  .p-foot{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+  .price{font-size:20px;font-weight:800}
+  .price small{font-size:12px;color:var(--muted);font-weight:500}
+  .btn-add{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:9px 18px;border-radius:11px;font-size:13px;font-weight:700;transition:.2s;box-shadow:0 4px 14px rgba(108,140,255,.3)}
+  .btn-add:hover{filter:brightness(1.12);transform:translateY(-1px)}
+  .btn-add:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .qty-ctl{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:11px;padding:4px}
+  .qty-ctl button{width:28px;height:28px;border-radius:8px;background:transparent;color:var(--text);font-size:16px;font-weight:700}
+  .qty-ctl button:hover{background:var(--border)}
+  .qty-ctl span{min-width:20px;text-align:center;font-weight:700;font-size:14px}
+
+  /* ---------- Orders ---------- */
+  .order-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:12px}
+  .order-id{font-weight:700;font-size:15px}
+  .order-meta{color:var(--muted);font-size:13px}
+  .status{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;padding:5px 12px;border-radius:999px}
+  .status.pending{background:rgba(255,200,87,.14);color:var(--amber);border:1px solid rgba(255,200,87,.35)}
+  .status.paid,.status.approved,.status.completed{background:rgba(61,220,151,.14);color:var(--green);border:1px solid rgba(61,220,151,.35)}
+  .status.failed{background:rgba(255,107,107,.14);color:var(--red);border:1px solid rgba(255,107,107,.35)}
+  .btn-pay{margin-left:auto;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:9px 18px;border-radius:11px;font-size:13px;font-weight:700;transition:.2s}
+  .btn-pay:hover{border-color:var(--green);color:var(--green)}
+  .empty{background:var(--card);border:1px dashed var(--border);border-radius:14px;padding:46px;text-align:center;color:var(--muted)}
+
+  /* ---------- Cart drawer ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.25s;z-index:90}
+  .overlay.open{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);background:var(--bg2);border-left:1px solid var(--border);z-index:100;transform:translateX(105%);transition:transform .32s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column}
+  .drawer.open{transform:translateX(0)}
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--border)}
+  .drawer-head h3{font-size:18px}
+  .drawer-body{flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:12px}
+  .cart-item{display:flex;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;align-items:center}
+  .ci-img{width:56px;height:56px;border-radius:12px;background:var(--card2);display:grid;place-items:center;font-size:28px;flex-shrink:0}
+  .ci-info{flex:1;min-width:0}
+  .ci-name{font-weight:700;font-size:14px}
+  .ci-price{color:var(--muted);font-size:12px;margin-top:3px}
+  .drawer-foot{padding:20px 22px;border-top:1px solid var(--border)}
+  .total-row{display:flex;justify-content:space-between;font-size:15px;margin-bottom:14px}
+  .total-row b{font-size:20px}
+  .btn-checkout{width:100%;background:linear-gradient(135deg,var(--green),#2bb37f);color:#04241a;padding:14px;border-radius:13px;font-size:15px;font-weight:800;transition:.2s}
+  .btn-checkout:hover{filter:brightness(1.1)}
+  .btn-checkout:disabled{opacity:.4;cursor:not-allowed}
+  .btn-ghost{width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px;border-radius:12px;font-size:13px;margin-top:10px}
+  .btn-ghost:hover{color:var(--text)}
+
+  /* ---------- Modal ---------- */
+  .modal-wrap{position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:.25s;padding:20px}
+  .modal-wrap.open{opacity:1;pointer-events:auto}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:20px;width:min(460px,100%);max-height:88vh;overflow-y:auto;padding:28px;transform:scale(.95);transition:.25s}
+  .modal-wrap.open .modal{transform:scale(1)}
+  .modal h3{font-size:20px;margin-bottom:6px}
+  .modal .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .field input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:11px 14px;color:var(--text);font-size:14px;outline:none;transition:.2s}
+  .field input:focus{border-color:var(--accent)}
+  .summary{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:16px;margin:16px 0}
+  .summary .row{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);padding:4px 0}
+  .summary .row.total{color:var(--text);font-weight:800;font-size:16px;border-top:1px solid var(--border);margin-top:8px;padding-top:10px}
+  .btn-primary{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:13px;border-radius:12px;font-size:14px;font-weight:800;transition:.2s}
+  .btn-primary:hover{filter:brightness(1.12)}
+  .btn-primary:disabled{opacity:.5;cursor:wait}
+  .close-x{float:right;background:transparent;color:var(--muted);font-size:20px;line-height:1}
+  .close-x:hover{color:var(--text)}
+
+  /* success check */
+  .success-check{width:74px;height:74px;border-radius:50%;background:rgba(61,220,151,.12);border:1px solid rgba(61,220,151,.4);display:grid;place-items:center;margin:8px auto 16px;font-size:34px;color:var(--green);animation:pop .4s ease}
+
+  /* ---------- Settings ---------- */
+  .set-grid{display:grid;gap:12px}
+  .set-note{background:rgba(255,200,87,.08);border:1px solid rgba(255,200,87,.25);color:var(--amber);font-size:12px;border-radius:11px;padding:12px 14px;line-height:1.5}
+
+  /* ---------- Toast ---------- */
+  #toasts{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:10px}
+  .toast{background:var(--card2);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:12px;padding:13px 18px;font-size:13px;font-weight:600;box-shadow:var(--shadow);animation:slidein .3s ease;max-width:330px}
+  .toast.ok{border-left-color:var(--green)}
+  .toast.err{border-left-color:var(--red)}
+  @keyframes slidein{from{transform:translateX(40px);opacity:0}}
+
+  .spinner{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:-4px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  @media(max-width:640px){
+    .header-inner{flex-wrap:wrap}
+    nav{order:3;width:100%;justify-content:center}
+    .user-chip span.lbl{display:none}
+  }
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo"><span class="dot"></span>Nexora</div>
+    <nav>
+      <button id="nav-shop" class="active">Shop</button>
+      <button id="nav-orders">My Orders</button>
+    </nav>
+    <div class="header-right">
+      <div class="user-chip" title="Your user ID">
+        <span class="lbl">User</span>
+        <input id="user-id" value="user-1" spellcheck="false">
+      </div>
+      <button class="icon-btn" id="btn-settings" title="API settings">⚙️</button>
+      <button class="icon-btn" id="btn-cart" title="Cart">🛒<span class="badge" id="cart-badge">0</span></button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <h1>Premium gear for <span>builders & makers</span></h1>
+  <p>Laptops, keyboards and mice — hand-picked hardware for developers. Powered by a Go microservices backend.</p>
+  <div class="health-row" id="health-row"></div>
+</section>
+
+<main>
+  <section id="view-shop">
+    <div class="section-title">Products <small id="product-source"></small></div>
+    <div class="grid" id="product-grid"></div>
+  </section>
+
+  <section id="view-orders" style="display:none">
+    <div class="section-title">My Orders <small id="orders-count"></small>
+      <button class="btn-ghost" style="width:auto;margin:0 0 0 auto;padding:8px 16px" id="btn-refresh-orders">↻ Refresh</button>
+    </div>
+    <div id="orders-list"></div>
+  </section>
+</main>
+
+<!-- Cart drawer -->
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="cart-drawer">
+  <div class="drawer-head">
+    <h3>Your Cart</h3>
+    <button class="close-x" id="close-cart">✕</button>
+  </div>
+  <div class="drawer-body" id="cart-body"></div>
+  <div class="drawer-foot">
+    <div class="total-row"><span>Subtotal</span><b id="cart-total">$0.00</b></div>
+    <button class="btn-checkout" id="btn-checkout">Proceed to Checkout →</button>
+    <button class="btn-ghost" id="btn-clear-view">Continue shopping</button>
+  </div>
+</aside>
+
+<!-- Checkout modal -->
+<div class="modal-wrap" id="checkout-modal">
+  <div class="modal">
+    <button class="close-x" data-close="checkout-modal">✕</button>
+    <h3>Confirm Checkout</h3>
+    <p class="sub">This calls POST /checkout/api/checkouts</p>
+    <div id="checkout-step-1">
+      <div class="summary" id="checkout-summary"></div>
+      <button class="btn-primary" id="btn-do-checkout">Place Order</button>
+    </div>
+    <div id="checkout-step-2" style="display:none">
+      <div class="success-check">✓</div>
+      <h3 style="text-align:center">Order created!</h3>
+      <p class="sub" style="text-align:center" id="checkout-result"></p>
+      <button class="btn-primary" id="btn-go-pay">Pay Now →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment modal -->
+<div class="modal-wrap" id="pay-modal">
+  <div class="modal">
+    <button class="close-x" data-close="pay-modal">✕</button>
+    <h3>Payment</h3>
+    <p class="sub">This calls POST /payments/api/payments</p>
+    <div id="pay-step-1">
+      <div class="field"><label>Order ID</label><input id="pay-order-id" readonly></div>
+      <div class="field"><label>Amount</label><input id="pay-amount" readonly></div>
+      <div class="summary">
+        <div class="row"><span>Card number</span><span>4242 4242 4242 4242</span></div>
+        <div class="row"><span>Gateway</span><span>Demo Processor</span></div>
+        <div class="row total"><span>Total charge</span><span id="pay-total"></span></div>
+      </div>
+      <button class="btn-primary" id="btn-do-pay">Pay <span id="pay-btn-amount"></span></button>
+    </div>
+    <div id="pay-step-2" style="display:none">
+      <div class="success-check">✓</div>
+      <h3 style="text-align:center">Payment approved!</h3>
+      <p class="sub" style="text-align:center" id="pay-result"></p>
+      <button class="btn-primary" data-close="pay-modal">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-wrap" id="settings-modal">
+  <div class="modal">
+    <button class="close-x" data-close="settings-modal">✕</button>
+    <h3>API Settings</h3>
+    <p class="sub">Base URL per service. Leave empty to use this page's origin (same-origin gateway).</p>
+    <div class="set-note">⚠ Your Go services don't send CORS headers. Either open this page from the <b>same origin</b> as the APIs (e.g. behind a reverse proxy / API gateway), or add <code>w.Header().Set("Access-Control-Allow-Origin","*")</code> to each service.</div>
+    <div class="set-grid" style="margin-top:16px" id="settings-fields"></div>
+    <button class="btn-primary" style="margin-top:18px" id="btn-save-settings">Save & Reconnect</button>
+    <button class="btn-ghost" id="btn-reset-settings">Reset defaults</button>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ================= Configuration ================= */
+const ALB = 'http://ecommerce-platform-dev-860723742.us-east-1.elb.amazonaws.com';
+const DEFAULT_BASES = { product:ALB, cart:ALB, order:ALB, checkout:ALB, payment:ALB };
+const PATHS = {
+  product:  b => `${b}/product/api/products`,
+  cart:     b => `${b}/cart/api/cart`,
+  cartItem: b => `${b}/cart/api/cart/items`,
+  orders:   b => `${b}/orders/api/orders`,
+  checkout: b => `${b}/checkout/api/checkouts`,
+  payment:  b => `${b}/payments/api/payments`,
+};
+let bases = load('nexora_bases', {...DEFAULT_BASES});
+const userIdInput = document.getElementById('user-id');
+userIdInput.value = load('nexora_user', 'user-1');
+const getUser = () => userIdInput.value.trim() || 'user-1';
+
+/* fallback catalogue so the shop never looks broken */
+const FALLBACK_PRODUCTS = [
+  {id:1, name:'Laptop',     description:'Development laptop',   price:1200, currency:'USD', emoji:'💻'},
+  {id:2, name:'Keyboard',   description:'Mechanical keyboard',price:100,  currency:'USD', emoji:'⌨️'},
+  {id:3, name:'Mouse',      description:'Wireless mouse',     price:50,   currency:'USD', emoji:'🖱️'},
+];
+
+let products = [...FALLBACK_PRODUCTS];
+let cart = { user_id:getUser(), items:[] };
+let pendingOrder = null;
+
+function load(k, fb){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; }catch(e){ return fb; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+const $ = id => document.getElementById(id);
+function toast(msg, type='info'){
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  $('toasts').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(), 320); }, 3400);
+}
+const fmt = (n, c='USD') => new Intl.NumberFormat('en-US',{style:'currency',currency:c}).format(n||0);
+const emojiFor = p => p.emoji || FALLBACK_PRODUCTS.find(f=>f.id===p.id)?.emoji || '📦';
+const prodById = id => products.find(p => p.id === Number(id));
+
+async function api(name, url, opts={}){
+  const res = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
+  if(!res.ok) throw new Error(`${name} service returned ${res.status}`);
+  return res.json();
+}
+
+/* ================= Health ================= */
+const SERVICES = ['product','cart','order','checkout','payment'];
+function renderHealth(){
+  $('health-row').innerHTML = SERVICES.map(s =>
+    `<div class="health-pill checking" id="health-${s}"><span class="h-dot"></span>${s}</div>`).join('');
+}
+async function checkHealth(){
+  SERVICES.forEach(s => setHealth(s, 'checking'));
+  await Promise.all(SERVICES.map(async s => {
+    try{
+      const ctrl = new AbortController();
+      const to = setTimeout(()=>ctrl.abort(), 4000);
+      const res = await fetch(`${bases[s]}/health`, { signal: ctrl.signal });
+      clearTimeout(to);
+      setHealth(s, res.ok ? 'up' : 'down');
+    }catch(e){ setHealth(s, 'down'); }
+  }));
+}
+function setHealth(s, st){
+  const el = $('health-'+s);
+  if(!el) return;
+  el.className = 'health-pill ' + st;
+}
+
+/* ================= Products ================= */
+async function loadProducts(){
+  try{
+    const data = await api('product', PATHS.product(bases.product));
+    if(Array.isArray(data) && data.length){
+      products = data;
+      $('product-source').textContent = `· live from product service (${data.length} items)`;
+    }
+  }catch(e){
+    $('product-source').textContent = '· product service unreachable — showing demo data';
+  }
+  renderProducts();
+}
+function renderProducts(){
+  const qtySel = {};
+  $('product-grid').innerHTML = products.map(p => `
+    <div class="card">
+      <div class="p-img"><span class="tag">In stock</span>${emojiFor(p)}</div>
+      <div class="p-body">
+        <div class="p-name">${esc(p.name)}</div>
+        <div class="p-desc">${esc(p.description||'')}</div>
+        <div class="p-foot">
+          <div class="price">${fmt(p.price, p.currency)}</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="qty-ctl">
+              <button onclick="bumpQty(${p.id},-1)">−</button>
+              <span id="q-${p.id}">1</span>
+              <button onclick="bumpQty(${p.id},1)">+</button>
+            </div>
+            <button class="btn-add" id="add-${p.id}" onclick="addToCart(${p.id})">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function bumpQty(id, d){
+  const el = $('q-'+id);
+  el.textContent = Math.max(1, (parseInt(el.textContent)||1) + d);
+}
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function addToCart(id){
+  const btn = $('add-'+id);
+  const qty = parseInt($('q-'+id).textContent)||1;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  try{
+    cart = await api('cart', `${PATHS.cartItem(bases.cart)}?user_id=${encodeURIComponent(getUser())}&product_id=${id}&quantity=${qty}`, { method:'POST' });
+    toast(`${prodById(id)?.name || 'Item'} added to cart`, 'ok');
+    const badge = $('cart-badge');
+    badge.classList.remove('pop'); void badge.offsetWidth; badge.classList.add('pop');
+    renderCart();
+    openCart();
+  }catch(e){ toast('Could not add item: ' + e.message, 'err'); }
+  btn.disabled = false; btn.textContent = 'Add';
+}
+
+/* ================= Cart ================= */
+async function loadCart(){
+  try{
+    cart = await api('cart', `${PATHS.cart(bases.cart)}?user_id=${encodeURIComponent(getUser())}`);
+  }catch(e){
+    cart = { user_id:getUser(), items: cart.items || [] };
+    toast('Cart service unreachable — showing local cart', 'err');
+  }
+  renderCart();
+}
+function cartCount(){ return (cart.items||[]).reduce((s,i)=>s+i.quantity,0); }
+function cartTotal(){
+  return (cart.items||[]).reduce((s,i)=>{
+    const p = prodById(i.product_id);
+    return s + (p ? p.price*i.quantity : 0);
+  },0);
+}
+function renderCart(){
+  const badge = $('cart-badge');
+  badge.textContent = cartCount();
+  $('cart-total').textContent = fmt(cartTotal());
+  const body = $('cart-body');
+  if(!(cart.items||[]).length){
+    body.innerHTML = `<div class="empty" style="margin:auto">🛒<br><br>Your cart is empty.<br>Add some gear from the shop!</div>`;
+    return;
+  }
+  body.innerHTML = cart.items.map((it, idx) => {
+    const p = prodById(it.product_id);
+    const name = p ? p.name : `Product #${it.product_id}`;
+    const price = p ? p.price : 0;
+    return `
+    <div class="cart-item">
+      <div class="ci-img">${emojiFor(p||{id:it.product_id})}</div>
+      <div class="ci-info">
+        <div class="ci-name">${esc(name)}</div>
+        <div class="ci-price">${fmt(price)} × ${it.quantity} = <b>${fmt(price*it.quantity)}</b></div>
+      </div>
+      <div class="qty-ctl">
+        <button onclick="bumpCartQty(${idx},-1)">−</button>
+        <span>${it.quantity}</span>
+        <button onclick="bumpCartQty(${idx},1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function bumpCartQty(idx, d){
+  const it = cart.items[idx];
+  if(!it) return;
+  it.quantity += d;
+  if(it.quantity <= 0) cart.items.splice(idx,1);
+  cart.items = [...cart.items]; // re-render locally
+  renderCart();
+  // persist via add endpoint (backend has no update/remove endpoint)
+  if(d > 0){
+    try{ cart = await api('cart', `${PATHS.cartItem(bases.cart)}?user_id=${encodeURIComponent(getUser())}&product_id=${it.product_id}&quantity=1`, {method:'POST'}); }
+    catch(e){ toast('Cart service unreachable — change is local only', 'err'); }
+  } else {
+    toast('Note: backend has no remove endpoint — refresh re-syncs from server', 'info');
+  }
+  renderCart();
+}
+function openCart(){ $('cart-drawer').classList.add('open'); $('overlay').classList.add('open'); renderCart(); }
+function closeCart(){ $('cart-drawer').classList.remove('open'); $('overlay').classList.remove('open'); }
+
+/* ================= Checkout ================= */
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+
+function startCheckout(){
+  if(!cartCount()){ toast('Your cart is empty', 'err'); return; }
+  closeCart();
+  $('checkout-step-1').style.display='block';
+  $('checkout-step-2').style.display='none';
+  $('checkout-summary').innerHTML =
+    (cart.items||[]).map(it=>{
+      const p = prodById(it.product_id);
+      return `<div class="row"><span>${esc(p?p.name:'Item #'+it.product_id)} × ${it.quantity}</span><span>${fmt((p?p.price:0)*it.quantity)}</span></div>`;
+    }).join('') +
+    `<div class="row total"><span>Total</span><span>${fmt(cartTotal())}</span></div>`;
+  openModal('checkout-modal');
+}
+
+async function doCheckout(){
+  const btn = $('btn-do-checkout');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Placing order…';
+  try{
+    const order = await api('checkout', PATHS.checkout(bases.checkout), {
+      method:'POST',
+      body: JSON.stringify({ user_id:getUser() })
+    });
+    pendingOrder = order;
+    $('checkout-step-1').style.display='none';
+    $('checkout-step-2').style.display='block';
+    $('checkout-result').innerHTML = `Order <b>${esc(order.order_id)}</b> · ${fmt(order.total, order.currency)} · status: ${esc(order.status)}`;
+    toast('Checkout successful!', 'ok');
+    cart = { user_id:getUser(), items:[] };
+    renderCart();
+  }catch(e){ toast('Checkout failed: ' + e.message, 'err'); }
+  btn.disabled = false; btn.textContent = 'Place Order';
+}
+
+/* ================= Payment ================= */
+function openPay(order){
+  const o = order || pendingOrder;
+  if(!o){ toast('No order to pay for', 'err'); return; }
+  $('pay-step-1').style.display='block';
+  $('pay-step-2').style.display='none';
+  $('pay-order-id').value = o.order_id || o.id;
+  $('pay-amount').value = fmt(o.total, o.currency);
+  $('pay-total').textContent = fmt(o.total, o.currency);
+  $('pay-btn-amount').textContent = fmt(o.total, o.currency);
+  closeModal('checkout-modal');
+  openModal('pay-modal');
+}
+async function doPay(){
+  const btn = $('btn-do-pay');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Processing…';
+  try{
+    const body = {
+      order_id: $('pay-order-id').value,
+      user_id: getUser(),
+      amount: pendingOrder ? pendingOrder.total : parseFloat(($('pay-amount').value||'').replace(/[^0-9.]/g,'')) || 0,
+      currency: (pendingOrder && pendingOrder.currency) || 'USD'
+    };
+    const res = await api('payment', PATHS.payment(bases.payment), { method:'POST', body: JSON.stringify(body) });
+    $('pay-step-1').style.display='none';
+    $('pay-step-2').style.display='block';
+    $('pay-result').innerHTML = `Payment <b>${esc(res.payment_id)}</b> for order <b>${esc(res.order_id)}</b><br>${fmt(res.amount, res.currency)} · ${esc(res.status)}`;
+    toast('Payment ' + res.status + '!', 'ok');
+    loadOrders();
+  }catch(e){ toast('Payment failed: ' + e.message, 'err'); }
+  btn.disabled = false;
+  btn.innerHTML = 'Pay <span id="pay-btn-amount"></span>';
+}
+
+/* ================= Orders ================= */
+async function loadOrders(){
+  const list = $('orders-list');
+  let orders = [];
+  try{
+    orders = await api('order', PATHS.orders(bases.order));
+  }catch(e){
+    list.innerHTML = `<div class="empty">Order service unreachable.<br><small>${esc(e.message)}</small></div>`;
+    return;
+  }
+  $('orders-count').textContent = orders.length ? `· ${orders.length} order${orders.length>1?'s':''}` : '';
+  if(!orders.length){
+    list.innerHTML = `<div class="empty">No orders yet — your orders will appear here after checkout.</div>`;
+    return;
+  }
+  list.innerHTML = orders.slice().reverse().map(o => `
+    <div class="order-card">
+      <div>
+        <div class="order-id">${esc(o.id)}</div>
+        <div class="order-meta">${esc(o.user_id)} · ${new Date(o.created_at).toLocaleString()}</div>
+      </div>
+      <span class="status ${esc(o.status)}">${esc(o.status)}</span>
+      <div style="margin-left:auto;font-weight:800">${fmt(o.total, o.currency)}</div>
+      <button class="btn-pay" onclick='openPay(${JSON.stringify({order_id:o.id, total:o.total, currency:o.currency})})'>Pay →</button>
+    </div>`).join('');
+}
+
+/* ================= Settings ================= */
+function renderSettings(){
+  $('settings-fields').innerHTML = SERVICES.map(s => `
+    <div class="field" style="margin:0">
+      <label>${s} base URL</label>
+      <input data-svc="${s}" value="${esc(bases[s])}" placeholder="e.g. http://localhost:8081 (empty = same origin)">
+    </div>`).join('');
+}
+function saveSettings(){
+  document.querySelectorAll('#settings-fields input').forEach(i => bases[i.dataset.svc] = i.value.trim().replace(/\/+$/,''));
+  save('nexora_bases', bases);
+  closeModal('settings-modal');
+  toast('Settings saved — reconnecting…', 'ok');
+  init();
+}
+
+/* ================= Navigation & wiring ================= */
+function show(view){
+  $('view-shop').style.display = view==='shop' ? 'block':'none';
+  $('view-orders').style.display = view==='orders' ? 'block':'none';
+  $('nav-shop').classList.toggle('active', view==='shop');
+  $('nav-orders').classList.toggle('active', view==='orders');
+  if(view==='orders') loadOrders();
+}
+$('nav-shop').onclick = () => show('shop');
+$('nav-orders').onclick = () => show('orders');
+$('btn-cart').onclick = openCart;
+$('close-cart').onclick = closeCart;
+$('btn-clear-view').onclick = closeCart;
+$('overlay').onclick = closeCart;
+$('btn-checkout').onclick = startCheckout;
+$('btn-do-checkout').onclick = doCheckout;
+$('btn-go-pay').onclick = () => openPay();
+$('btn-do-pay').onclick = doPay;
+$('btn-refresh-orders').onclick = () => loadOrders();
+$('btn-settings').onclick = () => { renderSettings(); openModal('settings-modal'); };
+$('btn-save-settings').onclick = saveSettings;
+$('btn-reset-settings').onclick = () => { bases = {...DEFAULT_BASES}; renderSettings(); };
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeModal(b.dataset.close));
+document.querySelectorAll('.modal-wrap').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
+userIdInput.addEventListener('change', () => { save('nexora_user', getUser()); toast('Switched to ' + getUser(), 'ok'); loadCart(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape'){ closeCart(); document.querySelectorAll('.modal-wrap.open').forEach(m=>m.classList.remove('open')); } });
+
+async function init(){
+  renderHealth();
+  await Promise.all([loadProducts(), loadCart()]);
+  checkHealth();
+}
+init();
+</script>
+</body>
+</html>
