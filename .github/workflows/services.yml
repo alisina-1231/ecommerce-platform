@@ -43,6 +43,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all history so historical SHAs are available
 
       - name: Detect changed services
         id: services
@@ -72,25 +74,32 @@ jobs:
           fi
 
 
+          # Fallback for new branches or first pushes where github.event.before is 0000000000000000000000000000000000000000
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            DIFF_COMMAND="git diff --name-only HEAD~1 HEAD"
+          else
+            DIFF_COMMAND="git diff --name-only ${{ github.event.before }} ${{ github.event.after }}"
+          fi
+
           SERVICES=()
 
-          if git diff --name-only HEAD^ HEAD | grep -q '^services/product/'; then
+          if $DIFF_COMMAND | grep -q '^services/product/'; then
             SERVICES+=('"product"')
           fi
 
-          if git diff --name-only HEAD^ HEAD | grep -q '^services/cart/'; then
+          if $DIFF_COMMAND | grep -q '^services/cart/'; then
             SERVICES+=('"cart"')
           fi
 
-          if git diff --name-only HEAD^ HEAD | grep -q '^services/order/'; then
+          if $DIFF_COMMAND | grep -q '^services/order/'; then
             SERVICES+=('"order"')
           fi
 
-          if git diff --name-only HEAD^ HEAD | grep -q '^services/checkout/'; then
+          if $DIFF_COMMAND | grep -q '^services/checkout/'; then
             SERVICES+=('"checkout"')
           fi
 
-          if git diff --name-only HEAD^ HEAD | grep -q '^services/payment/'; then
+          if $DIFF_COMMAND | grep -q '^services/payment/'; then
             SERVICES+=('"payment"')
           fi
 
@@ -119,9 +128,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
+        uses: actions/checkout@v4.4.0
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -297,42 +304,7 @@ jobs:
 
       - name: Deploy service to ECS
         run: |
-
           aws ecs update-service \
-            --cluster "$ECS_CLUSTER" \
+            --cluster "${{ env.ECS_CLUSTER }}" \
             --service "${{ steps.vars.outputs.ecs_service }}" \
             --task-definition "${{ steps.task-definition.outputs.task_definition_arn }}"
-
-
-      - name: Wait for ECS deployment
-        run: |
-
-          aws ecs wait services-stable \
-            --cluster "$ECS_CLUSTER" \
-            --services "${{ steps.vars.outputs.ecs_service }}"
-
-
-      - name: Deployment successful
-        run: |
-
-          echo "======================================"
-          echo "${{ matrix.service }} deployment successful"
-          echo "======================================"
-
-          echo "Image:"
-          echo "${{ env.ECR_REGISTRY }}/${{ steps.vars.outputs.repository }}:${{ steps.image.outputs.tag }}"
-
-          echo ""
-
-          echo "ECS cluster:"
-          echo "$ECS_CLUSTER"
-
-          echo ""
-
-          echo "ECS service:"
-          echo "${{ steps.vars.outputs.ecs_service }}"
-
-          echo ""
-
-          echo "Task definition:"
-          echo "${{ steps.task-definition.outputs.task_definition_arn }}"
