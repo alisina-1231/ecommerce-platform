@@ -31,159 +31,97 @@ permissions:
   contents: read
   id-token: write
 
-
-# ============================================================
-# DETECT CHANGED SERVICES
-# ============================================================
-
 jobs:
 
   changes:
-    name: Detect Changed Services
+    name: Detect changed services
     runs-on: ubuntu-latest
 
     outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
+      matrix: ${{ steps.services.outputs.matrix }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Detect changed files
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-
-            product:
-              - 'services/product/**'
-
-            cart:
-              - 'services/cart/**'
-
-            order:
-              - 'services/order/**'
-
-            checkout:
-              - 'services/checkout/**'
-
-            payment:
-              - 'services/payment/**'
-
-
-      - name: Build service matrix
-        id: matrix
+      - name: Detect changed services
+        id: services
         shell: bash
         run: |
-
-          SERVICES=()
-
-          # --------------------------------------------------
-          # Manual workflow
-          # --------------------------------------------------
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
 
             SERVICE="${{ inputs.service }}"
 
             if [ "$SERVICE" = "all" ]; then
-
-              SERVICES+=('"product"')
-              SERVICES+=('"cart"')
-              SERVICES+=('"order"')
-              SERVICES+=('"checkout"')
-              SERVICES+=('"payment"')
-
+              MATRIX='{
+                "service": [
+                  "product",
+                  "cart",
+                  "order",
+                  "checkout",
+                  "payment"
+                ]
+              }'
             else
-
-              SERVICES+=("\"$SERVICE\"")
-
+              MATRIX=$(printf '{"service":["%s"]}' "$SERVICE")
             fi
 
-          else
-
-            # ------------------------------------------------
-            # Automatic push
-            # ------------------------------------------------
-
-            if [ "${{ steps.filter.outputs.product }}" = "true" ]; then
-              SERVICES+=('"product"')
-            fi
-
-            if [ "${{ steps.filter.outputs.cart }}" = "true" ]; then
-              SERVICES+=('"cart"')
-            fi
-
-            if [ "${{ steps.filter.outputs.order }}" = "true" ]; then
-              SERVICES+=('"order"')
-            fi
-
-            if [ "${{ steps.filter.outputs.checkout }}" = "true" ]; then
-              SERVICES+=('"checkout"')
-            fi
-
-            if [ "${{ steps.filter.outputs.payment }}" = "true" ]; then
-              SERVICES+=('"payment"')
-            fi
-
+            echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
 
-          # --------------------------------------------------
-          # Build JSON matrix
-          # --------------------------------------------------
+          SERVICES=()
+
+          if git diff --name-only HEAD^ HEAD | grep -q '^services/product/'; then
+            SERVICES+=('"product"')
+          fi
+
+          if git diff --name-only HEAD^ HEAD | grep -q '^services/cart/'; then
+            SERVICES+=('"cart"')
+          fi
+
+          if git diff --name-only HEAD^ HEAD | grep -q '^services/order/'; then
+            SERVICES+=('"order"')
+          fi
+
+          if git diff --name-only HEAD^ HEAD | grep -q '^services/checkout/'; then
+            SERVICES+=('"checkout"')
+          fi
+
+          if git diff --name-only HEAD^ HEAD | grep -q '^services/payment/'; then
+            SERVICES+=('"payment"')
+          fi
+
 
           if [ ${#SERVICES[@]} -eq 0 ]; then
-
             echo 'matrix={"service":[]}' >> "$GITHUB_OUTPUT"
-
           else
-
             JOINED=$(IFS=,; echo "${SERVICES[*]}")
-
             echo "matrix={\"service\":[$JOINED]}" >> "$GITHUB_OUTPUT"
-
           fi
 
 
-          echo "Generated matrix:"
-          cat "$GITHUB_OUTPUT"
-
-
-  # ==========================================================
-  # BUILD / TEST / PUSH / DEPLOY
-  # ==========================================================
-
   build-test-push-deploy:
-
     name: Deploy ${{ matrix.service }}
-
     needs: changes
 
     if: ${{ fromJSON(needs.changes.outputs.matrix).service[0] != null }}
 
     runs-on: ubuntu-latest
-
     timeout-minutes: 20
 
     strategy:
       fail-fast: false
-
-      matrix:
-        service: ${{ fromJSON(needs.changes.outputs.matrix).service }}
-
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
 
     steps:
 
-      # ======================================================
-      # CHECKOUT
-      # ======================================================
-
       - name: Checkout repository
         uses: actions/checkout@v4
-
-
-      # ======================================================
-      # AWS AUTHENTICATION
-      # ======================================================
+        with:
+          fetch-depth: 2
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -193,86 +131,10 @@ jobs:
           role-session-name: GitHubActions-${{ matrix.service }}
           role-skip-session-tagging: true
 
-
       - name: Verify AWS identity
         run: |
           aws sts get-caller-identity
 
-
-      # ======================================================
-      # SERVICE CONFIGURATION
-      # ======================================================
-
-      - name: Set service variables
-        id: vars
-        shell: bash
-        run: |
-
-          case "${{ matrix.service }}" in
-
-            product)
-
-              echo "repository=ecommerce-platform-dev-product" >> "$GITHUB_OUTPUT"
-              echo "ecs_service=ecommerce-platform-dev-product" >> "$GITHUB_OUTPUT"
-              echo "task_family=ecommerce-platform-dev-product" >> "$GITHUB_OUTPUT"
-              echo "container=product" >> "$GITHUB_OUTPUT"
-
-              ;;
-
-
-            cart)
-
-              echo "repository=ecommerce-platform-dev-cart" >> "$GITHUB_OUTPUT"
-              echo "ecs_service=ecommerce-platform-dev-cart" >> "$GITHUB_OUTPUT"
-              echo "task_family=ecommerce-platform-dev-cart" >> "$GITHUB_OUTPUT"
-              echo "container=cart" >> "$GITHUB_OUTPUT"
-
-              ;;
-
-
-            order)
-
-              echo "repository=ecommerce-platform-dev-order" >> "$GITHUB_OUTPUT"
-              echo "ecs_service=ecommerce-platform-dev-order" >> "$GITHUB_OUTPUT"
-              echo "task_family=ecommerce-platform-dev-order" >> "$GITHUB_OUTPUT"
-              echo "container=order" >> "$GITHUB_OUTPUT"
-
-              ;;
-
-
-            checkout)
-
-              echo "repository=ecommerce-platform-dev-checkout" >> "$GITHUB_OUTPUT"
-              echo "ecs_service=ecommerce-platform-dev-checkout" >> "$GITHUB_OUTPUT"
-              echo "task_family=ecommerce-platform-dev-checkout" >> "$GITHUB_OUTPUT"
-              echo "container=checkout" >> "$GITHUB_OUTPUT"
-
-              ;;
-
-
-            payment)
-
-              echo "repository=ecommerce-platform-dev-payment" >> "$GITHUB_OUTPUT"
-              echo "ecs_service=ecommerce-platform-dev-payment" >> "$GITHUB_OUTPUT"
-              echo "task_family=ecommerce-platform-dev-payment" >> "$GITHUB_OUTPUT"
-              echo "container=payment" >> "$GITHUB_OUTPUT"
-
-              ;;
-
-
-            *)
-
-              echo "Unknown service: ${{ matrix.service }}"
-              exit 1
-
-              ;;
-
-          esac
-
-
-      # ======================================================
-      # GO TEST
-      # ======================================================
 
       - name: Run Go tests
         working-directory: services/${{ matrix.service }}
@@ -280,84 +142,88 @@ jobs:
           go test ./...
 
 
-      # ======================================================
-      # ECR LOGIN
-      # ======================================================
-
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-
-      # ======================================================
-      # IMAGE TAG
-      # ======================================================
 
       - name: Set image tag
         id: image
         run: |
           echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-          echo "Image tag:"
-          echo "${GITHUB_SHA::7}"
 
+      - name: Set service variables
+        id: vars
+        run: |
 
-      # ======================================================
-      # BUILD DOCKER IMAGE
-      # ======================================================
+          case "${{ matrix.service }}" in
+
+            product)
+              echo "repository=ecommerce-platform-dev-product" >> "$GITHUB_OUTPUT"
+              echo "ecs_service=ecommerce-platform-dev-product" >> "$GITHUB_OUTPUT"
+              echo "task_family=ecommerce-platform-dev-product" >> "$GITHUB_OUTPUT"
+              echo "container=product" >> "$GITHUB_OUTPUT"
+              ;;
+
+            cart)
+              echo "repository=ecommerce-platform-dev-cart" >> "$GITHUB_OUTPUT"
+              echo "ecs_service=ecommerce-platform-dev-cart" >> "$GITHUB_OUTPUT"
+              echo "task_family=ecommerce-platform-dev-cart" >> "$GITHUB_OUTPUT"
+              echo "container=cart" >> "$GITHUB_OUTPUT"
+              ;;
+
+            order)
+              echo "repository=ecommerce-platform-dev-order" >> "$GITHUB_OUTPUT"
+              echo "ecs_service=ecommerce-platform-dev-order" >> "$GITHUB_OUTPUT"
+              echo "task_family=ecommerce-platform-dev-order" >> "$GITHUB_OUTPUT"
+              echo "container=order" >> "$GITHUB_OUTPUT"
+              ;;
+
+            checkout)
+              echo "repository=ecommerce-platform-dev-checkout" >> "$GITHUB_OUTPUT"
+              echo "ecs_service=ecommerce-platform-dev-checkout" >> "$GITHUB_OUTPUT"
+              echo "task_family=ecommerce-platform-dev-checkout" >> "$GITHUB_OUTPUT"
+              echo "container=checkout" >> "$GITHUB_OUTPUT"
+              ;;
+
+            payment)
+              echo "repository=ecommerce-platform-dev-payment" >> "$GITHUB_OUTPUT"
+              echo "ecs_service=ecommerce-platform-dev-payment" >> "$GITHUB_OUTPUT"
+              echo "task_family=ecommerce-platform-dev-payment" >> "$GITHUB_OUTPUT"
+              echo "container=payment" >> "$GITHUB_OUTPUT"
+              ;;
+
+          esac
+
 
       - name: Build Docker image
         working-directory: services/${{ matrix.service }}
         env:
           IMAGE: ${{ env.ECR_REGISTRY }}/${{ steps.vars.outputs.repository }}:${{ steps.image.outputs.tag }}
-
         run: |
-
-          echo "Building:"
-          echo "$IMAGE"
-
           docker build \
             -t "$IMAGE" \
             .
 
 
-      # ======================================================
-      # PUSH DOCKER IMAGE
-      # ======================================================
-
       - name: Push Docker image
         env:
           IMAGE: ${{ env.ECR_REGISTRY }}/${{ steps.vars.outputs.repository }}:${{ steps.image.outputs.tag }}
-
         run: |
-
-          echo "Pushing:"
-          echo "$IMAGE"
-
           docker push "$IMAGE"
 
 
-      # ======================================================
-      # DOWNLOAD ECS TASK DEFINITION
-      # ======================================================
-
       - name: Download current task definition
         run: |
-
           aws ecs describe-task-definition \
             --task-definition "${{ steps.vars.outputs.task_family }}" \
             --query taskDefinition \
             > task-definition.json
 
 
-      # ======================================================
-      # CLEAN ECS TASK DEFINITION
-      # ======================================================
-
       - name: Clean task definition
         run: |
-
           python - <<'PY'
-
           import json
 
           with open("task-definition.json") as f:
@@ -382,23 +248,15 @@ jobs:
           PY
 
 
-      # ======================================================
-      # UPDATE CONTAINER IMAGE
-      # ======================================================
-
       - name: Update service image
         env:
           IMAGE: ${{ env.ECR_REGISTRY }}/${{ steps.vars.outputs.repository }}:${{ steps.image.outputs.tag }}
-
         run: |
-
           python - <<'PY'
-
           import json
           import os
 
           image = os.environ["IMAGE"]
-
           container_name = "${{ steps.vars.outputs.container }}"
 
           with open("task-definition-clean.json") as f:
@@ -407,38 +265,20 @@ jobs:
           found = False
 
           for container in task["containerDefinitions"]:
-
               if container["name"] == container_name:
-
                   container["image"] = image
                   found = True
 
           if not found:
-
               raise RuntimeError(
-                  f"Container '{container_name}' "
-                  f"was not found in ECS task definition"
+                  f"Container '{container_name}' not found in task definition"
               )
 
           with open("task-definition-final.json", "w") as f:
-
-              json.dump(
-                  task,
-                  f
-              )
-
-          print("Updated container:")
-          print(container_name)
-
-          print("New image:")
-          print(image)
+              json.dump(task, f)
 
           PY
 
-
-      # ======================================================
-      # REGISTER ECS TASK DEFINITION
-      # ======================================================
 
       - name: Register new task definition
         id: task-definition
@@ -449,21 +289,11 @@ jobs:
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
 
+          echo "task_definition_arn=$TASK_DEFINITION_ARN" >> "$GITHUB_OUTPUT"
 
-          echo "task_definition_arn=$TASK_DEFINITION_ARN" \
-            >> "$GITHUB_OUTPUT"
-
-
-          echo "======================================"
-          echo "Registered task definition"
-          echo "======================================"
-
+          echo "Registered:"
           echo "$TASK_DEFINITION_ARN"
 
-
-      # ======================================================
-      # DEPLOY TO ECS
-      # ======================================================
 
       - name: Deploy service to ECS
         run: |
@@ -474,10 +304,6 @@ jobs:
             --task-definition "${{ steps.task-definition.outputs.task_definition_arn }}"
 
 
-      # ======================================================
-      # WAIT FOR ECS
-      # ======================================================
-
       - name: Wait for ECS deployment
         run: |
 
@@ -486,37 +312,27 @@ jobs:
             --services "${{ steps.vars.outputs.ecs_service }}"
 
 
-      # ======================================================
-      # SUCCESS
-      # ======================================================
-
       - name: Deployment successful
         run: |
 
-          echo ""
           echo "======================================"
-          echo "  DEPLOYMENT SUCCESSFUL"
+          echo "${{ matrix.service }} deployment successful"
           echo "======================================"
 
-          echo ""
-          echo "Service:"
-          echo "${{ matrix.service }}"
-
-          echo ""
           echo "Image:"
           echo "${{ env.ECR_REGISTRY }}/${{ steps.vars.outputs.repository }}:${{ steps.image.outputs.tag }}"
 
           echo ""
-          echo "ECS Cluster:"
+
+          echo "ECS cluster:"
           echo "$ECS_CLUSTER"
 
           echo ""
-          echo "ECS Service:"
+
+          echo "ECS service:"
           echo "${{ steps.vars.outputs.ecs_service }}"
 
           echo ""
-          echo "Task Definition:"
-          echo "${{ steps.task-definition.outputs.task_definition_arn }}"
 
-          echo ""
-          echo "======================================"
+          echo "Task definition:"
+          echo "${{ steps.task-definition.outputs.task_definition_arn }}"
