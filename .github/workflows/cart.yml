@@ -1,4 +1,4 @@
-name: Cart Service - Build and Push
+name: Cart Service - Build, Push and Deploy
 
 on:
   push:
@@ -15,11 +15,15 @@ env:
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
   ECR_REPOSITORY: ecommerce-platform-dev-cart
 
+  ECS_CLUSTER: ecommerce-platform-dev
+  ECS_SERVICE: ecommerce-platform-dev-cart
+  ECS_TASK_FAMILY: ecommerce-platform-dev-cart
+
 jobs:
-  build-and-push:
-    name: Build and Push Cart
+  build-test-push-deploy:
+    name: Build, Push and Deploy Cart
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     permissions:
       contents: read
@@ -27,8 +31,17 @@ jobs:
 
     steps:
 
+      # --------------------------------------------------
+      # 1. Checkout
+      # --------------------------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4.4.0
+
+
+      # --------------------------------------------------
+      # 2. Configure AWS
+      # --------------------------------------------------
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -38,17 +51,47 @@ jobs:
           role-session-name: GitHubActions-Cart
           role-skip-session-tagging: true
 
+
+      # --------------------------------------------------
+      # 3. Verify AWS identity
+      # --------------------------------------------------
+
       - name: Verify AWS identity
         run: |
           aws sts get-caller-identity
 
+
+      # --------------------------------------------------
+      # 4. Run Go tests
+      # --------------------------------------------------
+
+      - name: Run Go tests
+        working-directory: services/cart
+        run: |
+          go test ./...
+
+
+      # --------------------------------------------------
+      # 5. Login to ECR
+      # --------------------------------------------------
+
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
+
+
+      # --------------------------------------------------
+      # 6. Set image tag
+      # --------------------------------------------------
 
       - name: Set image tag
         id: image
         run: |
           echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+
+      # --------------------------------------------------
+      # 7. Build Docker image
+      # --------------------------------------------------
 
       - name: Build Docker image
         working-directory: services/cart
@@ -57,12 +100,145 @@ jobs:
             -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }} \
             .
 
+
+      # --------------------------------------------------
+      # 8. Push Docker image
+      # --------------------------------------------------
+
       - name: Push Docker image
         run: |
           docker push \
             $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}
 
-      - name: Display image
+
+      # --------------------------------------------------
+      # 9. Download current ECS task definition
+      # --------------------------------------------------
+
+      - name: Download current task definition
         run: |
-          echo "Image pushed:"
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_FAMILY" \
+            --query taskDefinition \
+            > task-definition.json
+
+
+      # --------------------------------------------------
+      # 10. Remove fields that cannot be registered
+      # --------------------------------------------------
+
+      - name: Clean task definition
+        run: |
+          python - <<'PY'
+          import json
+
+          with open("task-definition.json") as f:
+              task = json.load(f)
+
+          fields = [
+              "taskDefinitionArn",
+              "revision",
+              "status",
+              "requiresAttributes",
+              "compatibilities",
+              "registeredAt",
+              "registeredBy"
+          ]
+
+          for field in fields:
+              task.pop(field, None)
+
+          with open("task-definition-clean.json", "w") as f:
+              json.dump(task, f)
+
+          PY
+
+
+      # --------------------------------------------------
+      # 11. Update Cart image
+      # --------------------------------------------------
+
+      - name: Update Cart image
+        env:
+          IMAGE: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.image.outputs.tag }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          image = os.environ["IMAGE"]
+
+          with open("task-definition-clean.json") as f:
+              task = json.load(f)
+
+          for container in task["containerDefinitions"]:
+              if container["name"] == "cart":
+                  container["image"] = image
+
+          with open("task-definition-final.json", "w") as f:
+              json.dump(task, f)
+
+          PY
+
+
+      # --------------------------------------------------
+      # 12. Register new ECS task definition
+      # --------------------------------------------------
+
+      - name: Register new task definition
+        id: task-definition
+        run: |
+          TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://task-definition-final.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "task_definition_arn=$TASK_DEFINITION_ARN" >> "$GITHUB_OUTPUT"
+
+          echo "Registered:"
+          echo "$TASK_DEFINITION_ARN"
+
+
+      # --------------------------------------------------
+      # 13. Update ECS service
+      # --------------------------------------------------
+
+      - name: Deploy Cart to ECS
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "${{ steps.task-definition.outputs.task_definition_arn }}"
+
+
+      # --------------------------------------------------
+      # 14. Wait for deployment
+      # --------------------------------------------------
+
+      - name: Wait for ECS deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"
+
+
+      # --------------------------------------------------
+      # 15. Display deployment
+      # --------------------------------------------------
+
+      - name: Deployment successful
+        run: |
+          echo "======================================"
+          echo "Cart deployment successful"
+          echo "======================================"
+          echo "Image:"
           echo "$ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}"
+          echo ""
+          echo "ECS cluster:"
+          echo "$ECS_CLUSTER"
+          echo ""
+          echo "ECS service:"
+          echo "$ECS_SERVICE"
+          echo ""
+          echo "Task definition:"
+          echo "${{ steps.task-definition.outputs.task_definition_arn }}"
