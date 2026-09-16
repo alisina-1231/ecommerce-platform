@@ -1,29 +1,30 @@
-name: Cart Service - Build, Push and Deploy
+name: Order Service - Build and Push
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'services/cart/**'
-      - '.github/workflows/cart.yml'
+      - 'services/order/**'
+      - '.github/workflows/order.yml'
 
   workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
-  ECR_REPOSITORY: ecommerce-platform-dev-cart
-
+  ECR_REPOSITORY: ecommerce-platform-dev-order
+  
   ECS_CLUSTER: ecommerce-platform-dev
-  ECS_SERVICE: ecommerce-platform-dev-cart
-  ECS_TASK_FAMILY: ecommerce-platform-dev-cart
+  ECS_SERVICE: ecommerce-platform-dev-order
+  ECS_TASK_FAMILY: ecommerce-platform-dev-order
+
 
 jobs:
-  build-test-push-deploy:
-    name: Build, Push and Deploy Cart
+  build-and-push:
+    name: Build and Push Order
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
 
     permissions:
       contents: read
@@ -31,39 +32,21 @@ jobs:
 
     steps:
 
-      # --------------------------------------------------
-      # 1. Checkout
-      # --------------------------------------------------
-
       - name: Checkout repository
-        uses: actions/checkout@v4.4.0
-
-
-      # --------------------------------------------------
-      # 2. Configure AWS
-      # --------------------------------------------------
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions-Cart
+          role-session-name: GitHubActions-Order
           role-skip-session-tagging: true
-
-
-      # --------------------------------------------------
-      # 3. Verify AWS identity
-      # --------------------------------------------------
 
       - name: Verify AWS identity
         run: |
           aws sts get-caller-identity
 
-
-      # --------------------------------------------------
-      # 4. Run Go tests
-      # --------------------------------------------------
 
       - name: Run Go tests
         working-directory: services/cart
@@ -71,49 +54,25 @@ jobs:
           go test ./...
 
 
-      # --------------------------------------------------
-      # 5. Login to ECR
-      # --------------------------------------------------
-
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
-
-
-      # --------------------------------------------------
-      # 6. Set image tag
-      # --------------------------------------------------
 
       - name: Set image tag
         id: image
         run: |
           echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-
-      # --------------------------------------------------
-      # 7. Build Docker image
-      # --------------------------------------------------
-
       - name: Build Docker image
-        working-directory: services/cart
+        working-directory: services/order
         run: |
           docker build \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }} \
             .
 
-
-      # --------------------------------------------------
-      # 8. Push Docker image
-      # --------------------------------------------------
-
       - name: Push Docker image
         run: |
           docker push \
             $ECR_REGISTRY/$ECR_REPOSITORY:${{ steps.image.outputs.tag }}
-
-
-      # --------------------------------------------------
-      # 9. Download current ECS task definition
-      # --------------------------------------------------
 
       - name: Download current task definition
         run: |
@@ -123,9 +82,6 @@ jobs:
             > task-definition.json
 
 
-      # --------------------------------------------------
-      # 10. Remove fields that cannot be registered
-      # --------------------------------------------------
 
       - name: Clean task definition
         run: |
@@ -153,11 +109,6 @@ jobs:
 
           PY
 
-
-      # --------------------------------------------------
-      # 11. Update Cart image
-      # --------------------------------------------------
-
       - name: Update Cart image
         env:
           IMAGE: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.image.outputs.tag }}
@@ -181,9 +132,6 @@ jobs:
           PY
 
 
-      # --------------------------------------------------
-      # 12. Register new ECS task definition
-      # --------------------------------------------------
 
       - name: Register new task definition
         id: task-definition
@@ -199,9 +147,6 @@ jobs:
           echo "$TASK_DEFINITION_ARN"
 
 
-      # --------------------------------------------------
-      # 13. Update ECS service
-      # --------------------------------------------------
 
       - name: Deploy Cart to ECS
         run: |
@@ -211,9 +156,6 @@ jobs:
             --task-definition "${{ steps.task-definition.outputs.task_definition_arn }}"
 
 
-      # --------------------------------------------------
-      # 14. Wait for deployment
-      # --------------------------------------------------
 
       - name: Wait for ECS deployment
         run: |
@@ -221,10 +163,6 @@ jobs:
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE"
 
-
-      # --------------------------------------------------
-      # 15. Display deployment
-      # --------------------------------------------------
 
       - name: Deployment successful
         run: |

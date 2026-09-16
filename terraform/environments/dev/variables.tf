@@ -31,3 +31,15 @@ variable "enable_nat_gateway" {
   type    = bool
   default = false
 }
+
+variable "database_username" {
+  description = "PostgreSQL username"
+  type        = string
+  sensitive   = true
+}
+
+variable "database_password" {
+  description = "PostgreSQL password"
+  type        = string
+  sensitive   = true
+}

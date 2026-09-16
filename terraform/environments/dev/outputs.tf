@@ -87,3 +87,28 @@ output "ecs_service_names" {
   description = "ECS service names"
   value       = module.ecs.service_names
 }
+
+output "postgres_endpoint" {
+  description = "PostgreSQL RDS endpoint"
+  value       = module.rds.endpoint
+}
+
+output "postgres_port" {
+  description = "PostgreSQL port"
+  value       = module.rds.port
+}
+
+output "postgres_database" {
+  description = "PostgreSQL database"
+  value       = module.rds.database_name
+}
+
+output "cart_dynamodb_table" {
+  description = "Cart DynamoDB table"
+  value       = module.cart_dynamodb.name
+}
+
+output "cart_dynamodb_arn" {
+  description = "Cart DynamoDB table ARN"
+  value       = module.cart_dynamodb.arn
+}

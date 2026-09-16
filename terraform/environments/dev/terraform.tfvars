@@ -11,3 +11,6 @@ availability_zones = [
 
 # Enable only when testing private subnet internet access.
 enable_nat_gateway = true
+
+database_username = "ecommerce_admin"
+database_password = "CHANGE_THIS_TO_A_STRONG_PASSWORD"

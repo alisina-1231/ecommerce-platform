@@ -138,3 +138,74 @@ module "s3_static_website" {
   source = "../../modules/s3"
 
 }
+
+
+resource "aws_security_group" "rds" {
+  name        = "${var.project_name}-${var.environment}-rds"
+  description = "Security group for PostgreSQL RDS"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    description     = "PostgreSQL from ECS"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [module.ecs.security_group_id]
+  }
+
+  egress {
+    description = "Allow outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-rds"
+  }
+}
+
+module "rds" {
+  source = "../../modules/rds"
+
+  name = "${var.project_name}-${var.environment}-postgres"
+
+  private_subnet_ids = module.vpc.private_subnet_ids
+
+  security_group_ids = [
+    aws_security_group.rds.id
+  ]
+
+  instance_class        = "db.t3.micro"
+  allocated_storage     = 20
+  max_allocated_storage = 50
+
+  database_name = "productdb"
+
+  username = var.database_username
+  password = var.database_password
+
+  backup_retention_period = 1
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Service     = "database"
+  }
+}
+
+module "cart_dynamodb" {
+  source = "../../modules/dynamodb"
+
+  name = "${var.project_name}-${var.environment}-cart"
+
+  hash_key      = "user_id"
+  hash_key_type = "S"
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Service     = "cart"
+  }
+}
