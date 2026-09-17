@@ -53,6 +53,6 @@ resource "aws_s3_object" "index" {
   bucket       = aws_s3_bucket.website.id
   key          = "index.html"
   source       = "/home/ali/project/ecommerce-platform/frontend/index.html" # Path to your local file
-  content_type = "text/html"        # Vital so browsers render it instead of downloading it
+  content_type = "text/html"                                                # Vital so browsers render it instead of downloading it
 }
 

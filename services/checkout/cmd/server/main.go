@@ -1,129 +1,100 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/alisina-1231/ecommerce-platform/services/checkout/internal/client"
+	"github.com/alisina-1231/ecommerce-platform/services/checkout/internal/handler"
+	"github.com/alisina-1231/ecommerce-platform/services/checkout/internal/middleware"
+
+	"github.com/go-chi/chi/v5"
 )
 
-type CheckoutRequest struct {
-	UserID string `json:"user_id"`
-}
+func getEnv(key, fallback string) string {
+	value := os.Getenv(key)
 
-type CheckoutResponse struct {
-	UserID   string  `json:"user_id"`
-	Status   string  `json:"status"`
-	OrderID  string  `json:"order_id"`
-	Total    float64 `json:"total"`
-	Currency string  `json:"currency"`
-	Message  string  `json:"message"`
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	response := map[string]string{
-		"status":  "healthy",
-		"service": "checkout",
+	if value == "" {
+		return fallback
 	}
 
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("failed to write health response: %v", err)
-	}
-}
-
-func checkoutHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var request CheckoutRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if request.UserID == "" {
-		http.Error(w, "user_id is required", http.StatusBadRequest)
-		return
-	}
-
-	response := CheckoutResponse{
-		UserID:   request.UserID,
-		Status:   "pending",
-		OrderID:  "order-demo-001",
-		Total:    1300,
-		Currency: "USD",
-		Message:  "Checkout created successfully",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("failed to write checkout response: %v", err)
-	}
+	return value
 }
 
 func main() {
-	port := os.Getenv("PORT")
+	cartURL := getEnv(
+		"CART_SERVICE_URL",
+		"http://localhost:8082",
+	)
 
-	if port == "" {
-		port = "8080"
-	}
+	productURL := getEnv(
+		"PRODUCT_SERVICE_URL",
+		"http://localhost:8081",
+	)
 
-	mux := http.NewServeMux()
+	orderURL := getEnv(
+		"ORDER_SERVICE_URL",
+		"http://localhost:8084",
+	)
 
-	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/checkout/api/checkouts", checkoutHandler)
+	paymentURL := getEnv(
+		"PAYMENT_SERVICE_URL",
+		"http://localhost:8085",
+	)
+
+	cartClient := client.NewCartClient(cartURL)
+	productClient := client.NewProductClient(productURL)
+	orderClient := client.NewOrderClient(orderURL)
+	paymentClient := client.NewPaymentClient(paymentURL)
+
+	checkoutHandler := handler.NewCheckoutHandler(
+		cartClient,
+		productClient,
+		orderClient,
+		paymentClient,
+	)
+
+	router := chi.NewRouter()
+
+	router.Use(middleware.Logging)
+	router.Use(middleware.CORS)
+
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		_, _ = w.Write([]byte(
+			`{"status":"ok","service":"checkout"}`,
+		))
+	})
+
+	router.Post(
+		"/checkout/api/checkout",
+		checkoutHandler.Checkout,
+	)
+
+	port := getEnv("PORT", "8083")
 
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      corsMiddleware(loggingMiddleware(mux)),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("checkout service listening on port %s", port)
+	log.Printf(
+		"checkout service listening on port %s",
+		port,
+	)
 
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		next.ServeHTTP(w, r)
-
-		log.Printf(
-			"method=%s path=%s duration=%s",
-			r.Method,
-			r.URL.Path,
-			time.Since(start),
+	if err := server.ListenAndServe(); err != nil &&
+		err != http.ErrServerClosed {
+		log.Fatalf(
+			"server failed: %v",
+			err,
 		)
-	})
+	}
 }

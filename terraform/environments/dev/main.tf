@@ -94,6 +94,43 @@ module "ecs" {
   target_group_arns = module.alb.target_group_arns
 
   desired_count = 1
+
+  extra_environment = {
+    product = [
+      { name = "DB_HOST", value = module.rds.endpoint },
+      { name = "DB_PORT", value = tostring(module.rds.port) },
+      { name = "DB_NAME", value = module.rds.database_name },
+      { name = "DB_USER", value = var.database_username },
+      { name = "DB_PASSWORD", value = var.database_password },
+    ]
+
+    order = [
+      { name = "DB_HOST", value = module.rds.endpoint },
+      { name = "DB_PORT", value = tostring(module.rds.port) },
+      { name = "DB_NAME", value = module.rds.database_name },
+      { name = "DB_USER", value = var.database_username },
+      { name = "DB_PASSWORD", value = var.database_password },
+    ]
+
+    payment = [
+      { name = "DB_HOST", value = module.rds.endpoint },
+      { name = "DB_PORT", value = tostring(module.rds.port) },
+      { name = "DB_NAME", value = module.rds.database_name },
+      { name = "DB_USER", value = var.database_username },
+      { name = "DB_PASSWORD", value = var.database_password },
+    ]
+
+    cart = [
+      { name = "DYNAMODB_TABLE_NAME", value = module.cart_dynamodb.name },
+    ]
+
+    checkout = [
+      { name = "CART_SERVICE_URL", value = "http://${module.alb.alb_dns_name}" },
+      { name = "PRODUCT_SERVICE_URL", value = "http://${module.alb.alb_dns_name}" },
+      { name = "ORDER_SERVICE_URL", value = "http://${module.alb.alb_dns_name}" },
+      { name = "PAYMENT_SERVICE_URL", value = "http://${module.alb.alb_dns_name}" },
+    ]
+  }
 }
 
 module "vpc_endpoints" {
@@ -150,7 +187,7 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [module.ecs.security_group_id]
+    security_groups = [module.security_groups.ecs_security_group_id]
   }
 
   egress {
@@ -171,7 +208,7 @@ module "rds" {
 
   name = "${var.project_name}-${var.environment}-postgres"
 
-  private_subnet_ids = module.vpc.private_subnet_ids
+  database_subnet_ids = module.vpc.database_subnet_ids
 
   security_group_ids = [
     aws_security_group.rds.id
@@ -207,5 +244,63 @@ module "cart_dynamodb" {
     Project     = var.project_name
     Environment = var.environment
     Service     = "cart"
+  }
+}
+
+module "cognito" {
+  source = "../../modules/cognito"
+
+  name        = "${var.project_name}-${var.environment}-users"
+  client_name = "${var.project_name}-${var.environment}-web-client"
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Service     = "authentication"
+  }
+}
+
+module "api_gateway" {
+  source = "../../modules/api-gateway"
+
+  name = "${var.project_name}-${var.environment}-api"
+
+  alb_listener_arn = module.alb.listener_arn
+
+  vpc_id = module.vpc.vpc_id
+
+  subnet_ids = module.vpc.private_subnet_ids
+
+  security_group_ids = [
+    module.security_groups.ecs_security_group_id
+  ]
+
+  jwt_issuer = module.cognito.issuer_url
+
+  jwt_audience = [
+    module.cognito.client_id
+  ]
+
+  throttling_burst_limit = 100
+  throttling_rate_limit  = 50
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Service     = "api-gateway"
+  }
+}
+
+module "frontend" {
+  source = "../../modules/cloudfront"
+
+  name = "${var.project_name}-${var.environment}"
+
+  price_class = "PriceClass_100"
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Service     = "cloudfront"
   }
 }

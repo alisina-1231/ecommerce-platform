@@ -3,8 +3,8 @@ variable "name" {
   type        = string
 }
 
-variable "private_subnet_ids" {
-  description = "Private subnet IDs for the RDS subnet group"
+variable "database_subnet_ids" {
+  description = "Database subnet IDs for the RDS subnet group"
   type        = list(string)
 }
 

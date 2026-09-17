@@ -1,3 +1,5 @@
-module cart
+module github.com/alisina-1231/ecommerce-platform/services/checkout
 
-go 1.24.4
+go 1.26.3
+
+require github.com/go-chi/chi/v5 v5.3.2

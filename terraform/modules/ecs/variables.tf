@@ -74,3 +74,9 @@ variable "desired_count" {
   type        = number
   default     = 1
 }
+
+variable "extra_environment" {
+  description = "Additional environment variables per service name"
+  type        = map(list(object({ name = string, value = string })))
+  default     = {}
+}

@@ -1,0 +1,27 @@
+-- Cart Service DynamoDB Table
+--
+-- Table name:
+-- ecommerce-platform-dev-cart
+--
+-- Partition key:
+-- user_id (String)
+--
+-- Attributes:
+-- user_id
+-- items
+--
+-- Example item:
+--
+-- {
+--   "user_id": "user-1",
+--   "items": [
+--     {
+--       "product_id": 1,
+--       "quantity": 2
+--     },
+--     {
+--       "product_id": 2,
+--       "quantity": 1
+--     }
+--   ]
+-- }

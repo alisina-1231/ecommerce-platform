@@ -1,146 +1,75 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/alisina-1231/ecommerce-platform/services/payment/internal/database"
+	"github.com/alisina-1231/ecommerce-platform/services/payment/internal/handler"
+	"github.com/alisina-1231/ecommerce-platform/services/payment/internal/middleware"
+	"github.com/alisina-1231/ecommerce-platform/services/payment/internal/repository"
+
+	"github.com/go-chi/chi/v5"
 )
 
-type PaymentRequest struct {
-	OrderID  string  `json:"order_id"`
-	UserID   string  `json:"user_id"`
-	Amount   float64 `json:"amount"`
-	Currency string  `json:"currency"`
-}
-
-type PaymentResponse struct {
-	PaymentID string  `json:"payment_id"`
-	OrderID   string  `json:"order_id"`
-	Status    string  `json:"status"`
-	Amount    float64 `json:"amount"`
-	Currency  string  `json:"currency"`
-	Message   string  `json:"message"`
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	response := map[string]string{
-		"status":  "healthy",
-		"service": "payment",
-	}
-
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("failed to write health response: %v", err)
-	}
-}
-
-func paymentHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var request PaymentRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if request.OrderID == "" {
-		http.Error(w, "order_id is required", http.StatusBadRequest)
-		return
-	}
-
-	if request.UserID == "" {
-		http.Error(w, "user_id is required", http.StatusBadRequest)
-		return
-	}
-
-	if request.Amount <= 0 {
-		http.Error(w, "amount must be greater than zero", http.StatusBadRequest)
-		return
-	}
-
-	if request.Currency == "" {
-		request.Currency = "USD"
-	}
-
-	response := PaymentResponse{
-		PaymentID: "payment-" + time.Now().Format("20060102150405"),
-		OrderID:   request.OrderID,
-		Status:    "approved",
-		Amount:    request.Amount,
-		Currency:  request.Currency,
-		Message:   "Payment processed successfully",
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("failed to write payment response: %v", err)
-	}
-}
-
 func main() {
-	port := os.Getenv("PORT")
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		10*time.Second,
+	)
+	defer cancel()
 
-	if port == "" {
-		port = "8080"
+	db, err := database.NewPool(ctx)
+	if err != nil {
+		log.Fatalf("database connection failed: %v", err)
 	}
+	defer db.Close()
 
-	mux := http.NewServeMux()
+	paymentRepository := repository.NewPaymentRepository(db)
+	paymentHandler := handler.NewPaymentHandler(paymentRepository)
 
-	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/payments/api/payments", paymentHandler)
+	router := chi.NewRouter()
+
+	router.Use(middleware.Logging)
+	router.Use(middleware.CORS)
+
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok","service":"payment"}`))
+	})
+
+	router.Route("/payment/api", func(router chi.Router) {
+		router.Post("/payments", paymentHandler.CreatePayment)
+		router.Get("/payments", paymentHandler.GetUserPayments)
+		router.Get("/payments/{paymentID}", paymentHandler.GetPayment)
+		router.Put(
+			"/payments/{paymentID}/status",
+			paymentHandler.UpdatePaymentStatus,
+		)
+		router.Delete("/payments/{paymentID}", paymentHandler.DeletePayment)
+	})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8085"
+	}
 
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      corsMiddleware(loggingMiddleware(mux)),
-		ReadTimeout:  5 * time.Second,
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
 	log.Printf("payment service listening on port %s", port)
 
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal(err)
+	if err := server.ListenAndServe(); err != nil &&
+		err != http.ErrServerClosed {
+		log.Fatalf("server failed: %v", err)
 	}
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		next.ServeHTTP(w, r)
-
-		log.Printf(
-			"method=%s path=%s duration=%s",
-			r.Method,
-			r.URL.Path,
-			time.Since(start),
-		)
-	})
 }

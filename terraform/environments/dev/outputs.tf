@@ -112,3 +112,48 @@ output "cart_dynamodb_arn" {
   description = "Cart DynamoDB table ARN"
   value       = module.cart_dynamodb.arn
 }
+
+
+output "cognito_user_pool_id" {
+  value = module.cognito.user_pool_id
+}
+
+output "cognito_user_pool_arn" {
+  value = module.cognito.user_pool_arn
+}
+
+output "cognito_client_id" {
+  value = module.cognito.client_id
+}
+
+output "cognito_issuer_url" {
+  value = module.cognito.issuer_url
+}
+
+output "cognito_customers_group" {
+  value = module.cognito.customers_group
+}
+
+output "cognito_admins_group" {
+  value = module.cognito.admins_group
+}
+
+output "frontend_bucket_name" {
+  value = module.frontend.bucket_name
+}
+
+output "frontend_bucket_arn" {
+  value = module.frontend.bucket_arn
+}
+
+output "cloudfront_distribution_id" {
+  value = module.frontend.cloudfront_distribution_id
+}
+
+output "cloudfront_domain_name" {
+  value = module.frontend.cloudfront_domain_name
+}
+
+output "frontend_url" {
+  value = module.frontend.frontend_url
+}

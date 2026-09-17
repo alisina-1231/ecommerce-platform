@@ -2,6 +2,9 @@
 *.tfstate
 *.tfstate.*
 *.tfplan
+task-definition.json
+task-definition-clean.json
+task-definition-final.json
 .env
 .env.*
 !.env.example
