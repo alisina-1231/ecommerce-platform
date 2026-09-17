@@ -11,7 +11,7 @@ COPY internal ./internal
 COPY migrations ./migrations
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -o product-service ./cmd/server
+    go build -o cart-service ./cmd/server
 
 FROM alpine:3.20
 

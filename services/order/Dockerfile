@@ -4,15 +4,19 @@ WORKDIR /app
 
 COPY go.mod go.sum ./
 
-COPY cmd ./cmd
+RUN go mod download
 
+COPY cmd ./cmd
 COPY internal ./internal
 COPY migrations ./migrations
-RUN  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o order-service ./cmd/server
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -o order-service ./cmd/server
 
 FROM alpine:3.20
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && \
+    adduser -S appuser -G appgroup
 
 WORKDIR /app
 
