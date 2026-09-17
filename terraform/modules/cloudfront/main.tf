@@ -1,10 +1,10 @@
 resource "aws_s3_bucket" "frontend" {
-  bucket = "${var.name}-frontend"
+  bucket = "${var.name}-frontend-test-1231"
 
   tags = merge(
     var.tags,
     {
-      Name = "${var.name}-frontend"
+      Name = "${var.name}-frontend-test-1231"
     }
   )
 }
